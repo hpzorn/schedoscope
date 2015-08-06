@@ -26,11 +26,14 @@ import org.apache.hadoop.mapreduce.JobStatus.State.SUCCEEDED
 import org.schedoscope.Settings
 import org.schedoscope.DriverSettings
 import java.security.PrivilegedAction
-
+import org.schedoscope.scheduler.GraphiteWriter
+import scala.collection.JavaConverters._
+import org.apache.hadoop.mapreduce.Counter
+import java.util.Date
 class MapreduceDriver(val ugi: UserGroupInformation) extends Driver[MapreduceTransformation] {
 
   val fsd = FileSystemDriver(Settings().getDriverSettings("filesystem"))
-
+  val writer = new GraphiteWriter("monitoring-sink-graphite01",2003)
   def driver = this
 
   override def transformationName = "mapreduce"
@@ -79,7 +82,16 @@ class MapreduceDriver(val ugi: UserGroupInformation) extends Driver[MapreduceTra
     // in case there are special MR exceptions for which a retry makes sense, add these here & throw a DriverException
     case e: Throwable => DriverRunFailed[MapreduceTransformation](driver, s"Mapreduce job ${t.job.getJobName} failed", e)
   }
+  
+  def logJobMetrics(job:Job) = {
+    val counters = job.getCounters().getGroup("Graphite_Monitoring").iterator()
 
+    val counterMap =counters.asScala.foldLeft(Map[String,Long]())((map,counter)=>map+(counter.getName()->counter.getValue()))
+    val timeStamp = (new Date(job.getConfiguration().get("job_date")).getTime()/1000l).toString
+    writer.write(counterMap.asJava, timeStamp)
+  
+   }
+  
   override def killRun(runHandle: DriverRunHandle[MapreduceTransformation]) = try {
     ugi.doAs(new PrivilegedAction[Unit]() {
       def run(): Unit = {
