@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>schedoscope</groupId>
 	<artifactId>schedoscope-core</artifactId>
-	<version>0.1.1-SNAPSHOT</version>
+	<version>0.1.2-monthid-SNAPSHOT</version>
 	<name>Schedoscope Core</name>
 	<description>The Schedoscope Hadoop scheduler</description>
 
@@ -263,6 +263,14 @@
 		<sourceDirectory>src/main/scala</sourceDirectory>
 		<testSourceDirectory>src/test/scala</testSourceDirectory>
 		<plugins>
+        <plugin>
+            <groupId>external.atlassian.jgitflow</groupId>
+            <artifactId>jgitflow-maven-plugin</artifactId>
+            <version>1.0-m5.1</version>
+            <configuration>
+                <!-- see goals wiki page for configuration options -->
+            </configuration>
+        </plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
