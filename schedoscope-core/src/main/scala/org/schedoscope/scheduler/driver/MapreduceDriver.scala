@@ -30,19 +30,27 @@ import org.schedoscope.scheduler.GraphiteWriter
 import scala.collection.JavaConverters._
 import org.apache.hadoop.mapreduce.Counter
 import java.util.Date
+import org.slf4j.LoggerFactory
+import java.text.SimpleDateFormat
+
 class MapreduceDriver(val ugi: UserGroupInformation) extends Driver[MapreduceTransformation] {
 
   val fsd = FileSystemDriver(Settings().getDriverSettings("filesystem"))
-  val writer = new GraphiteWriter("monitoring-sink-graphite01",2003)
+
+  val writer = new GraphiteWriter(Settings().graphiteHost,Settings().graphitePort)
   def driver = this
+  val dateformat = new SimpleDateFormat("yyyyMMdd")
 
   override def transformationName = "mapreduce"
+  val log = LoggerFactory.getLogger(classOf[MapreduceDriver])
 
   def run(t: MapreduceTransformation): DriverRunHandle[MapreduceTransformation] = try {
     ugi.doAs(new PrivilegedAction[DriverRunHandle[MapreduceTransformation]]() {
       def run(): DriverRunHandle[MapreduceTransformation] = {
         t.configure();
+        
         t.directoriesToDelete.foreach(d => fsd.delete(d, true))
+        log.debug(t.job.getConfiguration().toString())
         t.job.submit()
         new DriverRunHandle[MapreduceTransformation](driver, new LocalDateTime(), t, t.job)
       }
@@ -58,7 +66,7 @@ class MapreduceDriver(val ugi: UserGroupInformation) extends Driver[MapreduceTra
     ugi.doAs(new PrivilegedAction[DriverRunState[MapreduceTransformation]]() {
       def run(): DriverRunState[MapreduceTransformation] = {
         job.getJobState match {
-          case SUCCEEDED => DriverRunSucceeded[MapreduceTransformation](driver, s"Mapreduce job ${jobId} succeeded")
+          case SUCCEEDED => {logJobMetrics(job); DriverRunSucceeded[MapreduceTransformation](driver, s"Mapreduce job ${jobId} succeeded")}
           case PREP | RUNNING => DriverRunOngoing[MapreduceTransformation](driver, runHandle)
           case FAILED | KILLED => DriverRunFailed[MapreduceTransformation](driver, s"Mapreduce job ${jobId} failed", DriverException(s"Failed Mapreduce job status ${job.getJobState}"))
         }
@@ -84,12 +92,16 @@ class MapreduceDriver(val ugi: UserGroupInformation) extends Driver[MapreduceTra
   }
   
   def logJobMetrics(job:Job) = {
-    val counters = job.getCounters().getGroup("Graphite_Monitoring").iterator()
-
-    val counterMap =counters.asScala.foldLeft(Map[String,Long]())((map,counter)=>map+(counter.getName()->counter.getValue()))
-    val timeStamp = (new Date(job.getConfiguration().get("job_date")).getTime()/1000l).toString
-    writer.write(counterMap.asJava, timeStamp)
-  
+	   if (job.getConfiguration().get("job_date")!=null) {
+		    val counters = job.getCounters().getGroup(Settings().monitoringCounterGroup).iterator()
+		    val counterMap =counters.asScala.foldLeft(Map[String,Long]())((map,counter)=>map+(Settings().graphitePrefix+".hadoop-mapred."+counter.getDisplayName()->counter.getValue()))
+		    val timeStamp = (dateformat.parse(job.getConfiguration().get("job_date")))
+		    timeStamp.setHours(16)
+		    timeStamp.setMinutes(1)
+		    timeStamp.setSeconds(1)		       
+		    writer.write(counterMap.asJava, (timeStamp.getTime()/1000l).toString)
+	    log.debug(s"wrote ${counterMap.toString} with timestamp $timeStamp (${(timeStamp.getTime()/1000l)} to Graphite")
+	   }
    }
   
   override def killRun(runHandle: DriverRunHandle[MapreduceTransformation]) = try {
