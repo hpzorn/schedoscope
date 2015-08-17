@@ -120,6 +120,11 @@ class SettingsImpl(val config: Config) extends Extension {
   lazy val metastoreWriteBatchSize = config.getInt("schedoscope.metastore.writeBatchSize")
   lazy val metastoreReadBatchSize = config.getInt("schedoscope.metastore.readBatchSize")
 
+  lazy val graphiteHost=config.getString("schedoscope.monitoring.graphiteHost")
+  lazy val graphitePort= config.getInt("schedoscope.monitoring.graphitePort")
+  lazy val graphitePrefix= config.getString("schedoscope.monitoring.graphitePrefix")
+  lazy val monitoringCounterGroup= config.getInt("schedoscope.monitoring.counterGroup")
+  lazy val enabled = config.getBoolean("schedoscope.monitoring.enabled")
   lazy val userGroupInformation = {
     UserGroupInformation.setConfiguration(hadoopConf)
     val ugi = UserGroupInformation.getCurrentUser()
