@@ -94,7 +94,7 @@ class MapreduceDriver(val ugi: UserGroupInformation) extends Driver[MapreduceTra
   def logJobMetrics(job:Job) = {
 	   if (job.getConfiguration().get("job_date")!=null) {
 		    val counters = job.getCounters().getGroup(Settings().monitoringCounterGroup).iterator()
-		    val counterMap =counters.asScala.foldLeft(Map[String,Long]())((map,counter)=>map+(Settings().graphitePrefix+".hadoop-mapred."+counter.getDisplayName()->counter.getValue()))
+		    val counterMap =counters.asScala.foldLeft(Map[String,Long]())((map,counter)=>map+(Settings().graphitePrefix+".hadoop-mapred."+counter.getDisplayName().toLowerCase()->counter.getValue()))
 		    val timeStamp = (dateformat.parse(job.getConfiguration().get("job_date")))
 		    timeStamp.setHours(16)
 		    timeStamp.setMinutes(1)
